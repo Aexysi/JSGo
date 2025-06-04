@@ -208,6 +208,23 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func setupCORS(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        setupCORS(w, r)
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+
 func main() {
 	// Загружаем вопросы из текстового файла (например, "questions.txt").
 	loadedQuestions, err := loadQuestions("questions.txt")
@@ -222,8 +239,12 @@ func main() {
 		Questions:     loadedQuestions,
 	}
 
-	http.HandleFunc("/api/test", testHandler)
-	http.HandleFunc("/api/submit", submitHandler)
+	mux := http.NewServeMux()
+    	mux.HandleFunc("/api/test", testHandler)
+    	mux.HandleFunc("/api/submit", submitHandler)
+
+    	// Добавляем CORS Middleware
+    	handler := corsMiddleware(mux)
 
 	// Добавляем поддержку динамического порта для хостинга
 	port := os.Getenv("PORT")
@@ -233,7 +254,7 @@ func main() {
 	log.Println("Сервер запущен на порту:", port)
 
 	// Запуск сервера
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal("Ошибка запуска сервера:", err)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
+    		log.Fatal("Ошибка запуска сервера:", err)
 	}
 }
