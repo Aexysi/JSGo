@@ -135,7 +135,7 @@
     // Загружаем тест через fetch
     async function loadTest() {
       try {
-        const response = await fetch('https://jsgo.onrender.com');
+        const response = await fetch('https://jsgo.onrender.com/api/test');
         if (!response.ok) {
           throw new Error('Ошибка загрузки теста, статус: ' + response.status);
         }
@@ -305,7 +305,7 @@
         value: userAnswers[qid]
       }));
 
-      fetch('https://jsgo.onrender.com', {
+      fetch('https://jsgo.onrender.com/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers: answersArray })
