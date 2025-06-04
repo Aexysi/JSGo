@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Профориентационный тест</title>
+  <style>
+    /* Общие стили */
+    body {
+      background-color: #f4f4f4;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #3f51b5;
+      color: white;
+      padding: 1em 0;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.8em;
+    }
+    main {
+      flex: 1;
+      max-width: 800px;
+      margin: 1em auto;
+      padding: 1em;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    /* Блок навигации */
+    .navigation {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 5px;
+      margin-bottom: 1em;
+      padding: 0.5em;
+    }
+    .nav-button {
+      width: 30px;
+      height: 30px;
+      font-size: 0.9em;
+      font-weight: bold;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: white;
+      transition: 0.3s;
+    }
+    .nav-button:hover, .nav-button.active {
+      background-color: #3f51b5;
+      color: white;
+    }
+    /* Блок инструкции */
+    .instruction {
+      font-size: 0.95em;
+      margin-bottom: 1em;
+      padding: 0.8em;
+      background: #e8eaf6;
+      border-left: 4px solid #3f51b5;
+      text-align: left;
+    }
+    /* Блок вопроса */
+    .question-title {
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-bottom: 1em;
+      text-align: left;
+    }
+    .options {
+      text-align: left;
+      margin-top: 10px;
+    }
+    .option-label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 1em;
+    }
+    /* Панель кнопок */
+    .buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1.5em;
+    }
+    .btn {
+      padding: 0.8em 1.5em;
+      font-size: 1em;
+      background: #3f51b5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .btn:hover {
+      background: #303f9f;
+    }
+    #server-response {
+      display: none; /* Скрываем по умолчанию */
+      padding: 1em;
+      background: #e8eaf6;
+      border-left: 4px solid #3f51b5;
+      margin: 1em auto;
+      max-width: 800px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Карта интересов Голомштока. Модификация Филимоновой</h2>
+  </header>
+  <!-- Основной контейнер теста -->
+  <main id="test-container">
+    <!-- Контейнер для навигации (номера вопросов) -->
+    <div id="navigation-container" class="navigation"></div>
+    <!-- Контейнер для отображения вопроса -->
+    <div id="question-container"></div>
+    <!-- Контейнер для кнопок управления -->
+    <div id="button-container" class="buttons"></div>
+  </main>
+  <div id="server-response"></div>
+
+  <script>
+    let testData = {};            // Данные теста, полученные с сервера (инструкция, вопросы, направления)
+    let currentQuestionIndex = 0; // Индекс текущего вопроса
+    let userAnswers = {};         // Объект для хранения ответов {questionId: value}
+
+    // Загружаем тест через fetch
+    async function loadTest() {
+      try {
+        const response = await fetch('http://localhost:8080/api/test');
+        if (!response.ok) {
+          throw new Error('Ошибка загрузки теста, статус: ' + response.status);
+        }
+        testData = await response.json();
+        renderNavigation();
+        renderCurrentQuestion();
+        renderButtons();
+      } catch (error) {
+        console.error("Ошибка при загрузке теста:", error);
+      }
+    }
+
+    // Отрисовывает верхнюю панель номеров вопросов
+    function renderNavigation() {
+      const navContainer = document.getElementById('navigation-container');
+      navContainer.innerHTML = '';
+      testData.questions.forEach((q, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'nav-button';
+        btn.textContent = index + 1;
+
+        if (index === currentQuestionIndex) {
+          btn.classList.add('active');
+        }
+
+        btn.addEventListener('click', () => {
+          currentQuestionIndex = index;
+          renderNavigation();
+          renderCurrentQuestion();
+          renderButtons();
+        });
+
+        navContainer.appendChild(btn);
+      });
+    }
+
+    // Отрисовывает текущий вопрос с вариантами ответов (радиокнопками)
+    function renderCurrentQuestion() {
+      const qContainer = document.getElementById('question-container');
+      qContainer.innerHTML = '';
+
+      // Отобразим инструкцию (например, упрощённо)
+      const instrDiv = document.createElement('div');
+      instrDiv.className = 'instruction';
+      instrDiv.textContent = testData.instruction;
+      qContainer.appendChild(instrDiv);
+
+      if (currentQuestionIndex < 0 || currentQuestionIndex >= testData.questions.length) {
+        return;
+      }
+
+      const question = testData.questions[currentQuestionIndex];
+
+      const qDiv = document.createElement('div');
+      qDiv.className = 'question';
+
+      const qTitle = document.createElement('div');
+      qTitle.className = 'question-title';
+      qTitle.textContent = `Вопрос ${currentQuestionIndex + 1}: ${question.text}`;
+      qDiv.appendChild(qTitle);
+
+      const choices = [
+        { value: 2, label: "Очень интересно" },
+        { value: 1, label: "Интересно" },
+        { value: 0, label: "Безразлично" },
+        { value: -1, label: "Не интересно" },
+        { value: -2, label: "Совсем не интересно" }
+      ];
+
+      const optionsDiv = document.createElement('div');
+      optionsDiv.className = 'options';
+      choices.forEach(choice => {
+        const label = document.createElement('label');
+        label.className = 'option-label';
+
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = `q_${question.id}`;
+        input.value = choice.value;
+
+        // Выставить ранее выбранный ответ, если есть.
+        if (userAnswers[question.id] === choice.value) {
+          input.checked = true;
+        }
+        input.addEventListener('change', () => {
+          userAnswers[question.id] = parseInt(input.value);
+          renderButtons(); // обновляем панель кнопок после выбора ответа
+        });
+
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(" " + choice.label));
+        optionsDiv.appendChild(label);
+      });
+      qDiv.appendChild(optionsDiv);
+      qContainer.appendChild(qDiv);
+    }
+
+    // Отрисовывает кнопки управления (предыдущий/следующий/завершить)
+    function renderButtons() {
+        const btnContainer = document.getElementById('button-container');
+        btnContainer.innerHTML = '';
+      
+        // Проверяем, заполнены ли все ответы.
+        const allAnswered = Object.keys(userAnswers).length === testData.questions.length;
+      
+        // Если текущий вопрос не первый, добавляем кнопку "Предыдущий вопрос".
+        if (currentQuestionIndex > 0) {
+          const prevBtn = document.createElement('button');
+          prevBtn.className = 'btn';
+          prevBtn.textContent = 'Предыдущий вопрос';
+          prevBtn.addEventListener('click', () => {
+            currentQuestionIndex--;
+            renderNavigation();
+            renderCurrentQuestion();
+            renderButtons();
+          });
+          btnContainer.appendChild(prevBtn);
+        }
+      
+        // Если текущий вопрос не последний, добавляем кнопку "Следующий вопрос".
+        if (currentQuestionIndex < testData.questions.length - 1) {
+          const nextBtn = document.createElement('button');
+          nextBtn.className = 'btn';
+          nextBtn.textContent = 'Следующий вопрос';
+          nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            renderNavigation();
+            renderCurrentQuestion();
+            renderButtons();
+          });
+          // Если это первый вопрос (нет кнопки "Предыдущий"), прижимаем "Следующий" к правому краю.
+          if (currentQuestionIndex === 0) {
+            nextBtn.style.marginLeft = 'auto';
+          }
+          btnContainer.appendChild(nextBtn);
+        } else {
+          // Это последний вопрос: добавляем кнопку "Завершить тестирование".
+          const finishBtn = document.createElement('button');
+          finishBtn.className = 'btn';
+          finishBtn.textContent = 'Завершить тестирование';
+          finishBtn.style.marginLeft = 'auto';
+          if (allAnswered) {
+            finishBtn.disabled = false;
+            finishBtn.addEventListener('click', sendResults);
+          } else {
+            finishBtn.disabled = true;
+            finishBtn.title = "Ответьте на все вопросы, чтобы завершить тестирование.";
+          }
+          btnContainer.appendChild(finishBtn);
+      
+          // Если не все вопросы отвечены, выводим предупреждающее сообщение.
+          if (!allAnswered) {
+            const warningMsg = document.createElement('div');
+            warningMsg.textContent = "Пожалуйста, ответьте на все вопросы.";
+            warningMsg.style.color = "red";
+            warningMsg.style.textAlign = "center";
+            warningMsg.style.marginTop = "10px";
+            btnContainer.appendChild(warningMsg);
+          }
+        }
+      }      
+
+    // Отправляет результаты теста на сервер
+    function sendResults() {
+      const answersArray = Object.keys(userAnswers).map(qid => ({
+        questionId: parseInt(qid),
+        value: userAnswers[qid]
+      }));
+
+      fetch('http://localhost:8080/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: answersArray })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Отображаем результаты только после завершения теста
+        const responseDiv = document.getElementById('server-response');
+        responseDiv.style.display = 'block'; // Делаем видимым
+        responseDiv.innerHTML = "<h3>Результаты теста:</h3>" +
+            data.map(result => `<p>${result.area}: ${result.result} (баллы: ${result.score})</p>`).join('');
+    })
+      .catch(error => console.error("Ошибка отправки:", error));
+    }
+
+    document.addEventListener('DOMContentLoaded', loadTest);
+  </script>
+</body>
+</html>
